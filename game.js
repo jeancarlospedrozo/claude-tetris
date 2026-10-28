@@ -39,7 +39,10 @@ const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
+const themeBtn = document.getElementById('theme-toggle');
+const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 
+let gridColor = '#22222e';
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 
 function createBoard() {
@@ -169,7 +172,7 @@ function drawBlock(context, x, y, colorIndex, size, alpha) {
 }
 
 function drawGrid() {
-  ctx.strokeStyle = '#22222e';
+  ctx.strokeStyle = gridColor;
   ctx.lineWidth = 0.5;
   for (let c = 1; c < COLS; c++) {
     ctx.beginPath();
@@ -274,7 +277,44 @@ function init() {
   animId = requestAnimationFrame(loop);
 }
 
+function storedTheme() {
+  try {
+    const t = localStorage.getItem('theme');
+    return t === 'light' || t === 'dark' ? t : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  gridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim() || gridColor;
+  const isLight = theme === 'light';
+  themeBtn.textContent = isLight ? '☀️' : '🌙';
+  themeBtn.setAttribute('aria-pressed', String(!isLight));
+  themeBtn.title = isLight ? 'Cambiar a tema oscuro (T)' : 'Cambiar a tema claro (T)';
+  // repintar por si el juego está en pausa o terminado
+  if (current) { draw(); drawNext(); }
+}
+
+function toggleTheme() {
+  const theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  try { localStorage.setItem('theme', theme); } catch (e) {}
+  applyTheme(theme);
+}
+
+themeBtn.addEventListener('click', () => {
+  toggleTheme();
+  themeBtn.blur(); // evita que Space/Enter vuelvan a activar el botón durante el juego
+});
+
+// Sin elección manual, seguir los cambios del sistema
+systemDark.addEventListener('change', e => {
+  if (!storedTheme()) applyTheme(e.matches ? 'dark' : 'light');
+});
+
 document.addEventListener('keydown', e => {
+  if (e.code === 'KeyT') { toggleTheme(); return; }
   if (e.code === 'KeyP') { togglePause(); return; }
   if (paused || gameOver) return;
   switch (e.code) {
@@ -301,4 +341,5 @@ document.addEventListener('keydown', e => {
 
 restartBtn.addEventListener('click', init);
 
+applyTheme(document.documentElement.dataset.theme || (systemDark.matches ? 'dark' : 'light'));
 init();
